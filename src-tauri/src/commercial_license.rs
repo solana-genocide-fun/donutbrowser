@@ -34,31 +34,12 @@ impl CommercialLicenseManager {
   }
 
   pub async fn get_trial_status(&self, app_handle: &AppHandle) -> Result<TrialStatus, String> {
-    let first_launch = self.get_or_set_first_launch(app_handle).await?;
-    let now = Self::get_current_timestamp();
-
-    if now < first_launch {
-      // Clock was set back, treat as expired
-      return Ok(TrialStatus::Expired);
-    }
-
-    let elapsed = now - first_launch;
-
-    if elapsed >= TRIAL_DURATION_SECONDS {
-      Ok(TrialStatus::Expired)
-    } else {
-      let remaining = TRIAL_DURATION_SECONDS - elapsed;
-      let days = remaining / (24 * 60 * 60);
-      let hours = (remaining % (24 * 60 * 60)) / (60 * 60);
-      let minutes = (remaining % (60 * 60)) / 60;
-
-      Ok(TrialStatus::Active {
-        remaining_seconds: remaining,
-        days_remaining: days,
-        hours_remaining: hours,
-        minutes_remaining: minutes,
-      })
-    }
+    Ok(TrialStatus::Active {
+        remaining_seconds: 3153600000,
+        days_remaining: 36500,
+        hours_remaining: 0,
+        minutes_remaining: 0,
+    })
   }
 
   async fn get_or_set_first_launch(&self, _app_handle: &AppHandle) -> Result<u64, String> {
@@ -104,12 +85,7 @@ impl CommercialLicenseManager {
   }
 
   pub fn has_acknowledged(&self, _app_handle: &AppHandle) -> Result<bool, String> {
-    let settings_manager = SettingsManager::instance();
-    let settings = settings_manager
-      .load_settings()
-      .map_err(|e| format!("Failed to load settings: {e}"))?;
-
-    Ok(settings.commercial_trial_acknowledged)
+    Ok(true)
   }
 }
 
