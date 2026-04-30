@@ -17,57 +17,6 @@ env:
   STABLE_RELEASE: "true"
 
 jobs:
-  security-scan:
-    if: github.repository == 'zhom/donutbrowser'
-    name: Security Vulnerability Scan
-    uses: "google/osv-scanner-action/.github/workflows/osv-scanner-reusable.yml@c51854704019a247608d928f370c98740469d4b5" # v2.3.5
-    with:
-      scan-args: |-
-        -r
-        --skip-git
-        --lockfile=pnpm-lock.yaml
-        --lockfile=src-tauri/Cargo.lock
-        ./
-    permissions:
-      security-events: write
-      contents: read
-      actions: read
-
-  lint-js:
-    if: github.repository == 'zhom/donutbrowser'
-    name: Lint JavaScript/TypeScript
-    uses: ./.github/workflows/lint-js.yml
-    secrets: inherit
-    permissions:
-      contents: read
-
-  lint-rust:
-    if: github.repository == 'zhom/donutbrowser'
-    name: Lint Rust
-    uses: ./.github/workflows/lint-rs.yml
-    secrets: inherit
-    permissions:
-      contents: read
-
-  codeql:
-    if: github.repository == 'zhom/donutbrowser'
-    name: CodeQL
-    uses: ./.github/workflows/codeql.yml
-    secrets: inherit
-    permissions:
-      security-events: write
-      contents: read
-      packages: read
-      actions: read
-
-  spellcheck:
-    if: github.repository == 'zhom/donutbrowser'
-    name: Spell Check
-    uses: ./.github/workflows/spellcheck.yml
-    secrets: inherit
-    permissions:
-      contents: read
-
   release:
     if: github.repository == 'ebatelchyrok/donutbrowser'
     permissions:
