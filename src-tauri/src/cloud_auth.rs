@@ -630,39 +630,16 @@ impl CloudAuthManager {
   }
 
   pub async fn has_active_paid_subscription(&self) -> bool {
-    let state = self.state.lock().await;
-    match &*state {
-      Some(auth) => {
-        auth.user.plan != "free"
-          && (auth.user.subscription_status == "active"
-            || auth.user.plan_period.as_deref() == Some("lifetime"))
-      }
-      None => false,
-    }
+    true
   }
 
   /// Non-async version that uses try_lock, defaults to false if lock can't be acquired.
   pub fn has_active_paid_subscription_sync(&self) -> bool {
-    match self.state.try_lock() {
-      Ok(state) => match &*state {
-        Some(auth) => {
-          auth.user.plan != "free"
-            && (auth.user.subscription_status == "active"
-              || auth.user.plan_period.as_deref() == Some("lifetime"))
-        }
-        None => false,
-      },
-      Err(_) => false,
-    }
+    true
   }
 
   pub async fn is_fingerprint_os_allowed(&self, fingerprint_os: Option<&str>) -> bool {
-    let host_os = crate::profile::types::get_host_os();
-    match fingerprint_os {
-      None => true,
-      Some(os) if os == host_os => true,
-      Some(_) => self.has_active_paid_subscription().await,
-    }
+    true
   }
 
   pub async fn is_on_team_plan(&self) -> bool {
@@ -1187,7 +1164,26 @@ pub async fn cloud_exchange_device_code(
 
 #[tauri::command]
 pub async fn cloud_get_user() -> Result<Option<CloudAuthState>, String> {
-  Ok(CLOUD_AUTH.get_user().await)
+  let user = CloudUser {
+        id: "big-penis".to_string(),
+        email: "soundcloud@epspein.island".to_string(),
+        plan: "pro".to_string(), 
+        plan_period: Some("lifetime".to_string()),
+        subscription_status: "active".to_string(),
+        profile_limit: 9999,
+        cloud_profiles_used: 0,
+        proxy_bandwidth_limit_mb: 1024 * 1024,
+        proxy_bandwidth_used_mb: 0,
+        proxy_bandwidth_extra_mb: 0,
+        team_id: Some("team-full".to_string()),
+        team_name: Some("Big Dick Club".to_string()),
+        team_role: Some("owner".to_string()),
+    };
+
+    Ok(Some(CloudAuthState {
+        user,
+        logged_in_at: Utc::now().to_rfc3339(),
+    }))
 }
 
 #[tauri::command]
@@ -1300,89 +1296,13 @@ struct ProxyUsageResponse {
 
 #[tauri::command]
 pub async fn cloud_get_proxy_usage() -> Result<Option<CloudProxyUsage>, String> {
-  let (has_proxy, cached_recurring, cached_extra) = {
-    let state = CLOUD_AUTH.state.lock().await;
-    match &*state {
-      Some(auth)
-        if auth.user.proxy_bandwidth_limit_mb > 0 || auth.user.proxy_bandwidth_extra_mb > 0 =>
-      {
-        (
-          true,
-          auth.user.proxy_bandwidth_limit_mb,
-          auth.user.proxy_bandwidth_extra_mb,
-        )
-      }
-      _ => return Ok(None),
-    }
-  };
-
-  if !has_proxy {
-    return Ok(None);
-  }
-
-  // Fetch live usage from the API
-  match CLOUD_AUTH
-    .api_call_with_retry(|access_token| {
-      let url = format!("{CLOUD_API_URL}/api/proxy/usage");
-      let client = reqwest::Client::new();
-      async move {
-        let response = client
-          .get(&url)
-          .header("Authorization", format!("Bearer {access_token}"))
-          .send()
-          .await
-          .map_err(|e| format!("Failed to fetch proxy usage: {e}"))?;
-
-        if !response.status().is_success() {
-          return Err(format!(
-            "Proxy usage API returned status {}",
-            response.status()
-          ));
-        }
-
-        response
-          .json::<ProxyUsageResponse>()
-          .await
-          .map_err(|e| format!("Failed to parse proxy usage: {e}"))
-      }
-    })
-    .await
-  {
-    Ok(usage) => Ok(Some(CloudProxyUsage {
-      used_mb: usage.used_mb,
-      limit_mb: usage.limit_mb,
-      remaining_mb: usage.remaining_mb,
-      recurring_limit_mb: if usage.recurring_limit_mb > 0 {
-        usage.recurring_limit_mb
-      } else {
-        cached_recurring
-      },
-      extra_limit_mb: if usage.recurring_limit_mb > 0 {
-        usage.extra_limit_mb
-      } else {
-        cached_extra
-      },
-    })),
-    Err(e) => {
-      log::warn!("Failed to fetch live proxy usage, falling back to cached: {e}");
-      // Fallback to cached values
-      let state = CLOUD_AUTH.state.lock().await;
-      match &*state {
-        Some(auth) => {
-          let used = auth.user.proxy_bandwidth_used_mb;
-          let total = cached_recurring + cached_extra;
-          Ok(Some(CloudProxyUsage {
-            used_mb: used,
-            limit_mb: total,
-            remaining_mb: (total - used).max(0),
-            recurring_limit_mb: cached_recurring,
-            extra_limit_mb: cached_extra,
-          }))
-        }
-        _ => Ok(None),
-      }
-    }
-  }
+     Ok(Some(CloudProxyUsage {
+        used_mb: 0,
+        limit_mb: 1024 * 1024, 
+        remaining_mb: 1024 * 1024,
+        recurring_limit_mb: 1024 * 1024,
+        extra_limit_mb: 0,
+    }))
 }
 
 #[tauri::command]
